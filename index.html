@@ -1,0 +1,836 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<meta name="theme-color" content="#1a1a2e">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Price Collector">
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="icon-192.png">
+<title>Price Collector</title>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  background: #f0f0f5;
+  min-height: 100vh;
+  min-height: -webkit-fill-available;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.app {
+  width: 100%;
+  max-width: 480px;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  background: #f0f0f5;
+}
+
+.header {
+  background: #1a1a2e;
+  color: white;
+  padding: 52px 20px 16px;
+  text-align: center;
+  flex-shrink: 0;
+}
+
+.header h1 { font-size: 20px; font-weight: 700; letter-spacing: 0.5px; }
+.header p { font-size: 13px; opacity: 0.6; margin-top: 3px; }
+
+.sync-bar {
+  background: #16213e;
+  padding: 8px 16px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  color: #aaa;
+  flex-shrink: 0;
+}
+
+.sync-dot {
+  width: 8px; height: 8px;
+  border-radius: 50%;
+  background: #ccc;
+  flex-shrink: 0;
+  transition: background 0.3s;
+}
+.sync-dot.online { background: #4caf50; }
+.sync-dot.syncing { background: #ff9800; animation: pulse 1s infinite; }
+.sync-dot.offline { background: #f44336; }
+@keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.3} }
+
+.tab-bar {
+  display: flex;
+  background: white;
+  border-bottom: 1px solid #e8e8e8;
+  flex-shrink: 0;
+}
+
+.tab {
+  flex: 1;
+  padding: 12px 8px;
+  border: none;
+  background: transparent;
+  font-size: 13px;
+  font-weight: 500;
+  color: #999;
+  cursor: pointer;
+  border-bottom: 2px solid transparent;
+  transition: color 0.2s, border-color 0.2s;
+}
+
+.tab.active { color: #1a1a2e; border-bottom-color: #1a1a2e; }
+
+.panels { flex: 1; overflow-y: auto; }
+
+.panel { display: none; padding: 16px; }
+.panel.active { display: block; }
+
+/* Cards */
+.card {
+  background: white;
+  border-radius: 14px;
+  padding: 20px;
+  margin-bottom: 12px;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.07);
+}
+
+.section-label {
+  font-size: 11px;
+  font-weight: 700;
+  color: #999;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  margin-bottom: 8px;
+}
+
+/* Form elements */
+select, input[type="number"], input[type="text"] {
+  width: 100%;
+  padding: 14px 16px;
+  border: 1.5px solid #e8e8e8;
+  border-radius: 10px;
+  font-size: 16px;
+  outline: none;
+  background: white;
+  transition: border-color 0.2s;
+  -webkit-appearance: none;
+}
+
+select {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%23999' stroke-width='2' fill='none' stroke-linecap='round'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 16px center;
+  padding-right: 40px;
+}
+
+select:focus, input:focus { border-color: #1a1a2e; }
+
+/* Item display */
+.item-display {
+  background: #f4f4ff;
+  border: 1.5px solid #e0e0ff;
+  border-radius: 12px;
+  padding: 24px 16px;
+  text-align: center;
+  min-height: 100px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 16px;
+}
+
+.item-name {
+  font-size: 22px;
+  font-weight: 700;
+  color: #1a1a2e;
+  line-height: 1.3;
+}
+
+.item-sub { font-size: 13px; color: #999; margin-top: 6px; }
+
+/* Progress */
+.progress-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 16px;
+}
+
+.progress-bar-wrap {
+  flex: 1;
+  height: 6px;
+  background: #eee;
+  border-radius: 99px;
+  overflow: hidden;
+}
+
+.progress-bar-fill {
+  height: 100%;
+  background: #1a1a2e;
+  border-radius: 99px;
+  transition: width 0.4s ease;
+}
+
+.progress-text { font-size: 13px; font-weight: 600; color: #555; white-space: nowrap; }
+
+/* Buttons */
+.btn-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+
+.btn {
+  padding: 17px;
+  border: none;
+  border-radius: 12px;
+  font-size: 16px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: transform 0.1s, opacity 0.2s;
+  letter-spacing: 0.3px;
+}
+
+.btn:active { transform: scale(0.96); }
+.btn:disabled { opacity: 0.35; cursor: not-allowed; transform: none; }
+
+.btn-submit { background: #1a1a2e; color: white; }
+.btn-skip { background: #f0f0f0; color: #555; }
+
+.btn-full {
+  width: 100%;
+  margin-top: 12px;
+  padding: 15px;
+  border-radius: 12px;
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+  border: none;
+  transition: transform 0.1s;
+}
+
+.btn-full:active { transform: scale(0.98); }
+.btn-green { background: #e8f5e9; color: #2e7d32; }
+.btn-dark { background: #1a1a2e; color: white; }
+.btn-red { background: #ffebee; color: #c62828; }
+.btn-small {
+  padding: 11px 18px;
+  background: #1a1a2e;
+  color: white;
+  border: none;
+  border-radius: 10px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+/* Completed banner */
+.completed-banner {
+  background: #e8f5e9;
+  border: 1.5px solid #a5d6a7;
+  border-radius: 14px;
+  padding: 30px 20px;
+  text-align: center;
+  display: none;
+  margin-top: 8px;
+}
+
+.completed-banner .big-check { font-size: 52px; margin-bottom: 10px; }
+.completed-banner h2 { font-size: 20px; color: #1b5e20; font-weight: 700; }
+.completed-banner p { font-size: 14px; color: #388e3c; margin-top: 6px; line-height: 1.5; }
+
+/* Pending items */
+.pending-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px 14px;
+  background: #fff8e1;
+  border: 1px solid #ffe082;
+  border-radius: 10px;
+  margin-bottom: 8px;
+}
+
+.pending-price { font-weight: 700; color: #e65100; font-size: 15px; }
+.pending-name { font-weight: 600; color: #333; font-size: 14px; }
+.pending-supplier { font-size: 12px; color: #888; margin-top: 2px; }
+
+/* Setup box */
+.setup-box {
+  background: #fffde7;
+  border: 1px solid #ffe082;
+  border-radius: 12px;
+  padding: 16px;
+  margin-bottom: 16px;
+  font-size: 13px;
+  color: #5d4037;
+  line-height: 1.7;
+}
+
+.setup-box strong { display: block; font-size: 14px; margin-bottom: 4px; }
+
+.url-row { display: flex; gap: 8px; margin-top: 10px; }
+.url-row input { flex: 1; padding: 11px 12px; font-size: 13px; }
+
+.error-msg { font-size: 13px; margin-top: 8px; }
+.error-msg.red { color: #c62828; }
+.error-msg.green { color: #2e7d32; }
+.error-msg.gray { color: #888; }
+
+/* Loading */
+.loading-overlay {
+  text-align: center;
+  padding: 40px 20px;
+  display: none;
+}
+
+.spinner {
+  width: 32px; height: 32px;
+  border: 3px solid #eee;
+  border-top-color: #1a1a2e;
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+  margin: 0 auto 12px;
+}
+
+@keyframes spin { to { transform: rotate(360deg); } }
+
+.empty-state { text-align: center; padding: 30px 10px; color: #aaa; }
+.empty-state .icon { font-size: 36px; margin-bottom: 8px; }
+.empty-state p { font-size: 14px; line-height: 1.5; }
+
+.data-info { font-size: 13px; color: #555; line-height: 1.8; }
+.data-info strong { color: #1a1a2e; }
+
+/* Toast */
+.toast {
+  position: fixed;
+  bottom: 28px;
+  left: 50%;
+  transform: translateX(-50%) translateY(90px);
+  background: #1a1a2e;
+  color: white;
+  padding: 12px 24px;
+  border-radius: 99px;
+  font-size: 14px;
+  font-weight: 500;
+  transition: transform 0.3s ease;
+  z-index: 999;
+  white-space: nowrap;
+  max-width: 90vw;
+  text-align: center;
+}
+
+.toast.show { transform: translateX(-50%) translateY(0); }
+
+/* Install banner */
+.install-banner {
+  background: #e3f2fd;
+  border: 1px solid #90caf9;
+  border-radius: 12px;
+  padding: 14px 16px;
+  margin-bottom: 12px;
+  display: none;
+  align-items: center;
+  gap: 12px;
+}
+
+.install-banner p { font-size: 13px; color: #1565c0; flex: 1; line-height: 1.4; }
+.install-banner button {
+  padding: 8px 14px;
+  background: #1565c0;
+  color: white;
+  border: none;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.divider { height: 1px; background: #f0f0f0; margin: 16px 0; }
+</style>
+</head>
+<body>
+
+<div class="app">
+  <div class="header">
+    <h1>💰 Price Collector</h1>
+    <p id="header-sub">Supplier price entry</p>
+  </div>
+
+  <div class="sync-bar">
+    <div class="sync-dot" id="sync-dot"></div>
+    <span id="sync-status">Checking connection...</span>
+  </div>
+
+  <div class="tab-bar">
+    <button class="tab active" onclick="showTab('entry')">Entry</button>
+    <button class="tab" onclick="showTab('pending')">Pending <span id="pending-badge"></span></button>
+    <button class="tab" onclick="showTab('settings')">Settings</button>
+  </div>
+
+  <div class="panels">
+
+    <!-- ENTRY PANEL -->
+    <div class="panel active" id="panel-entry">
+
+      <div class="install-banner" id="install-banner">
+        <p>Install this app on your home screen for offline use!</p>
+        <button onclick="installApp()">Install</button>
+      </div>
+
+      <div class="card">
+        <div class="section-label">Supplier</div>
+        <select id="supplier-select" onchange="supplierChanged()">
+          <option value="">— select supplier —</option>
+        </select>
+      </div>
+
+      <div class="loading-overlay" id="loading-overlay">
+        <div class="spinner"></div>
+        <p style="color:#888; font-size:14px;">Loading from Google Sheet...</p>
+      </div>
+
+      <div id="item-area" style="display:none;">
+        <div class="card">
+          <div class="item-display">
+            <div class="item-name" id="item-name">—</div>
+            <div class="item-sub" id="item-sub"></div>
+          </div>
+
+          <div class="progress-row">
+            <div class="progress-bar-wrap">
+              <div class="progress-bar-fill" id="progress-fill" style="width:0%"></div>
+            </div>
+            <div class="progress-text" id="progress-text">0 / 0</div>
+          </div>
+
+          <div style="margin-bottom:16px;">
+            <div class="section-label">Price (KES)</div>
+            <input type="number" id="price-input" placeholder="Enter price..." min="0" step="0.01"
+              onkeydown="if(event.key==='Enter') submitPrice()" />
+            <div class="error-msg red" id="price-error" style="display:none;">Please enter a valid price</div>
+          </div>
+
+          <div class="btn-row">
+            <button class="btn btn-submit" onclick="submitPrice()">✓ Submit</button>
+            <button class="btn btn-skip" onclick="skipItem()">→ Skip</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="completed-banner" id="completed-banner">
+        <div class="big-check">✅</div>
+        <h2 id="completed-title">Done!</h2>
+        <p id="completed-msg"></p>
+        <button class="btn-full btn-green" onclick="resetSupplier()">Start another supplier</button>
+      </div>
+
+      <div class="empty-state" id="no-data-state" style="display:none;">
+        <div class="icon">⚙️</div>
+        <p>Go to <strong>Settings</strong> to connect your Google Sheet first.</p>
+      </div>
+
+      <div class="empty-state" id="no-supplier-state">
+        <div class="icon">☝️</div>
+        <p>Select a supplier above to start entering prices.</p>
+      </div>
+
+    </div>
+
+    <!-- PENDING PANEL -->
+    <div class="panel" id="panel-pending">
+      <div class="card">
+        <div class="section-label">Saved offline — not yet synced</div>
+        <div id="pending-list">
+          <div class="empty-state" style="padding:20px 0;">
+            <div class="icon">🎉</div>
+            <p>All prices synced!</p>
+          </div>
+        </div>
+        <button class="btn-full btn-dark" id="sync-now-btn" onclick="syncNow()" style="display:none;">Sync to Google Sheet now</button>
+      </div>
+    </div>
+
+    <!-- SETTINGS PANEL -->
+    <div class="panel" id="panel-settings">
+
+      <div class="card">
+        <div class="setup-box">
+          <strong>Google Sheet Web App URL</strong>
+          Paste the URL from your Google Apps Script deployment here.
+          <div class="url-row">
+            <input type="text" id="webapp-url" placeholder="https://script.google.com/macros/s/..." />
+            <button class="btn-small" onclick="saveWebAppUrl()">Save</button>
+          </div>
+          <div class="error-msg gray" id="url-msg">No URL saved yet.</div>
+        </div>
+
+        <button class="btn-full btn-dark" onclick="loadFromSheet()">Reload data from Google Sheet</button>
+      </div>
+
+      <div class="card">
+        <div class="section-label">Loaded data</div>
+        <div class="data-info" id="data-info">No data loaded yet.</div>
+      </div>
+
+      <div class="card">
+        <div class="section-label" style="color:#c62828;">Danger zone</div>
+        <button class="btn-full btn-red" onclick="clearAll()">Clear all local data</button>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+const DB_KEY = 'pc_data_v1';
+const PENDING_KEY = 'pc_pending_v1';
+const URL_KEY = 'pc_url_v1';
+
+let appData = { suppliers: [], items: [] };
+let pending = [];
+let webAppUrl = '';
+let isOnline = navigator.onLine;
+let deferredInstallPrompt = null;
+
+let cur = { supplier: null, queue: [], idx: 0 };
+
+// ── Init ──────────────────────────────────────────────────────────────────────
+function init() {
+  if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.register('sw.js').catch(e => console.warn('SW:', e));
+  }
+
+  webAppUrl = localStorage.getItem(URL_KEY) || '';
+  if (webAppUrl) document.getElementById('webapp-url').value = webAppUrl;
+
+  try {
+    const saved = JSON.parse(localStorage.getItem(DB_KEY) || 'null');
+    if (saved) { appData = saved; }
+  } catch(e) {}
+
+  try {
+    pending = JSON.parse(localStorage.getItem(PENDING_KEY) || '[]');
+  } catch(e) { pending = []; }
+
+  populateSuppliers();
+  updatePendingUI();
+  updateDataInfo();
+  updateSyncStatus();
+
+  window.addEventListener('online', () => { isOnline = true; updateSyncStatus(); autoSync(); });
+  window.addEventListener('offline', () => { isOnline = false; updateSyncStatus(); });
+
+  window.addEventListener('beforeinstallprompt', e => {
+    e.preventDefault();
+    deferredInstallPrompt = e;
+    document.getElementById('install-banner').style.display = 'flex';
+  });
+
+  if (!webAppUrl) {
+    showTab('settings');
+  } else if (appData.suppliers.length === 0 && isOnline) {
+    loadFromSheet();
+  }
+
+  if (appData.suppliers.length === 0 && !webAppUrl) {
+    document.getElementById('no-supplier-state').style.display = 'none';
+    document.getElementById('no-data-state').style.display = 'block';
+  }
+}
+
+// ── Install PWA ───────────────────────────────────────────────────────────────
+function installApp() {
+  if (!deferredInstallPrompt) return;
+  deferredInstallPrompt.prompt();
+  deferredInstallPrompt.userChoice.then(() => {
+    deferredInstallPrompt = null;
+    document.getElementById('install-banner').style.display = 'none';
+  });
+}
+
+// ── Tabs ──────────────────────────────────────────────────────────────────────
+function showTab(name) {
+  const names = ['entry', 'pending', 'settings'];
+  document.querySelectorAll('.tab').forEach((t, i) => t.classList.toggle('active', names[i] === name));
+  document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+  document.getElementById('panel-' + name).classList.add('active');
+}
+
+// ── Google Sheet ──────────────────────────────────────────────────────────────
+async function loadFromSheet() {
+  if (!webAppUrl) { showToast('Set Web App URL in Settings first'); return; }
+  document.getElementById('loading-overlay').style.display = 'block';
+  document.getElementById('item-area').style.display = 'none';
+  document.getElementById('no-supplier-state').style.display = 'none';
+  document.getElementById('no-data-state').style.display = 'none';
+
+  try {
+    const res = await fetch(webAppUrl + '?action=getData&t=' + Date.now());
+    const data = await res.json();
+    if (data.error) throw new Error(data.error);
+
+    appData = { suppliers: data.suppliers, items: data.items };
+    localStorage.setItem(DB_KEY, JSON.stringify(appData));
+    populateSuppliers();
+    updateDataInfo();
+    showToast('Loaded ' + data.items.length + ' items, ' + data.suppliers.length + ' suppliers');
+  } catch(e) {
+    showToast('Load failed — check URL or internet');
+    console.error(e);
+  }
+
+  document.getElementById('loading-overlay').style.display = 'none';
+  document.getElementById('no-supplier-state').style.display = 'block';
+}
+
+async function syncNow() {
+  if (!isOnline) { showToast('No internet'); return; }
+  if (!pending.length) { showToast('Nothing to sync'); return; }
+  await autoSync();
+}
+
+async function autoSync() {
+  if (!isOnline || !pending.length || !webAppUrl) return;
+
+  const dot = document.getElementById('sync-dot');
+  dot.className = 'sync-dot syncing';
+  document.getElementById('sync-status').textContent = 'Syncing...';
+
+  try {
+    const res = await fetch(webAppUrl, {
+      method: 'POST',
+      body: JSON.stringify({ action: 'savePrices', prices: pending }),
+      headers: { 'Content-Type': 'text/plain' }
+    });
+    const result = await res.json();
+    if (!result.success) throw new Error(result.error || 'Sync failed');
+
+    const count = pending.length;
+    pending = [];
+    savePending();
+    updatePendingUI();
+    showToast('Synced ' + count + ' price(s) to Google Sheet ✓');
+    await loadFromSheet();
+  } catch(e) {
+    console.error(e);
+    showToast('Sync failed — will retry');
+    setTimeout(autoSync, 30000);
+  }
+  updateSyncStatus();
+}
+
+// ── Suppliers & Queue ─────────────────────────────────────────────────────────
+function populateSuppliers() {
+  const sel = document.getElementById('supplier-select');
+  const prev = sel.value;
+  sel.innerHTML = '<option value="">— select supplier —</option>';
+  appData.suppliers.forEach(s => {
+    const o = document.createElement('option');
+    o.value = s; o.textContent = s;
+    sel.appendChild(o);
+  });
+  if (prev) sel.value = prev;
+}
+
+function supplierChanged() {
+  const sup = document.getElementById('supplier-select').value;
+  hide('completed-banner');
+  hide('item-area');
+  hide('no-data-state');
+
+  if (!sup) { show('no-supplier-state'); return; }
+  hide('no-supplier-state');
+
+  cur.supplier = sup;
+  buildQueue(sup);
+}
+
+function buildQueue(supplier) {
+  const alreadyPending = pending.filter(p => p.supplier === supplier).map(p => p.item);
+
+  cur.queue = appData.items.filter(item => {
+    const price = item.prices[supplier];
+    const hasPrice = price !== '' && price !== null && price !== undefined;
+    return !hasPrice && !alreadyPending.includes(item.name);
+  });
+  cur.idx = 0;
+
+  if (!cur.queue.length) { showCompleted(supplier); return; }
+  show('item-area');
+  renderCurrentItem();
+}
+
+function renderCurrentItem() {
+  const item = cur.queue[cur.idx];
+  if (!item) { showCompleted(cur.supplier); return; }
+
+  document.getElementById('item-name').textContent = item.name;
+  document.getElementById('item-sub').textContent = 'Item ' + cur.idx + ' of ' + cur.queue.length;
+  document.getElementById('price-input').value = '';
+  document.getElementById('price-error').style.display = 'none';
+  setTimeout(() => document.getElementById('price-input').focus(), 100);
+
+  const pct = cur.queue.length ? (cur.idx / cur.queue.length) * 100 : 0;
+  document.getElementById('progress-fill').style.width = pct + '%';
+  document.getElementById('progress-text').textContent = cur.idx + ' done / ' + (cur.queue.length - cur.idx) + ' left';
+}
+
+function submitPrice() {
+  const input = document.getElementById('price-input');
+  const val = parseFloat(input.value);
+  if (isNaN(val) || val < 0 || input.value.trim() === '') {
+    document.getElementById('price-error').style.display = 'block';
+    input.focus();
+    return;
+  }
+  document.getElementById('price-error').style.display = 'none';
+
+  const item = cur.queue[cur.idx];
+  pending.push({
+    supplier: cur.supplier,
+    item: item.name,
+    row: item.row,
+    price: val,
+    timestamp: new Date().toISOString()
+  });
+  savePending();
+  updatePendingUI();
+  updateSyncStatus();
+  showToast('Saved: ' + item.name + ' → KES ' + val);
+
+  cur.idx++;
+  if (cur.idx >= cur.queue.length) showCompleted(cur.supplier);
+  else renderCurrentItem();
+
+  if (isOnline) autoSync();
+}
+
+function skipItem() {
+  const item = cur.queue[cur.idx];
+  showToast('Skipped: ' + item.name);
+  cur.idx++;
+  if (cur.idx >= cur.queue.length) showCompleted(cur.supplier);
+  else renderCurrentItem();
+}
+
+function showCompleted(supplier) {
+  hide('item-area');
+  const banner = document.getElementById('completed-banner');
+  banner.style.display = 'block';
+  document.getElementById('completed-title').textContent = supplier + ' — done!';
+  const skipped = cur.queue.length - cur.idx;
+  document.getElementById('completed-msg').textContent =
+    cur.idx + ' price(s) saved' + (skipped ? ', ' + skipped + ' skipped.' : '. All done!');
+}
+
+function resetSupplier() {
+  document.getElementById('supplier-select').value = '';
+  hide('completed-banner');
+  show('no-supplier-state');
+  cur = { supplier: null, queue: [], idx: 0 };
+}
+
+// ── Pending ───────────────────────────────────────────────────────────────────
+function savePending() { localStorage.setItem(PENDING_KEY, JSON.stringify(pending)); }
+
+function updatePendingUI() {
+  const badge = document.getElementById('pending-badge');
+  const list = document.getElementById('pending-list');
+  const btn = document.getElementById('sync-now-btn');
+
+  badge.textContent = pending.length ? '(' + pending.length + ')' : '';
+  btn.style.display = pending.length ? 'block' : 'none';
+
+  if (!pending.length) {
+    list.innerHTML = '<div class="empty-state" style="padding:20px 0;"><div class="icon">🎉</div><p>All synced!</p></div>';
+    return;
+  }
+
+  list.innerHTML = pending.map(p => `
+    <div class="pending-item">
+      <div>
+        <div class="pending-name">${p.item}</div>
+        <div class="pending-supplier">${p.supplier}</div>
+      </div>
+      <div class="pending-price">KES ${p.price}</div>
+    </div>
+  `).join('');
+}
+
+// ── Settings ──────────────────────────────────────────────────────────────────
+function saveWebAppUrl() {
+  const val = document.getElementById('webapp-url').value.trim();
+  const msg = document.getElementById('url-msg');
+  if (!val.startsWith('https://script.google.com')) {
+    msg.textContent = 'URL must start with https://script.google.com';
+    msg.className = 'error-msg red';
+    return;
+  }
+  webAppUrl = val;
+  localStorage.setItem(URL_KEY, webAppUrl);
+  msg.textContent = '✓ Saved!';
+  msg.className = 'error-msg green';
+  showToast('URL saved — loading data...');
+  loadFromSheet();
+}
+
+function updateDataInfo() {
+  const el = document.getElementById('data-info');
+  if (!appData.suppliers.length) { el.textContent = 'No data loaded yet.'; return; }
+  el.innerHTML = `<strong>${appData.items.length}</strong> items &nbsp;·&nbsp; <strong>${appData.suppliers.length}</strong> suppliers<br><span style="color:#aaa;font-size:12px;">${appData.suppliers.join(', ')}</span>`;
+}
+
+function clearAll() {
+  if (!confirm('Delete all local data and pending prices?')) return;
+  [DB_KEY, PENDING_KEY, URL_KEY].forEach(k => localStorage.removeItem(k));
+  appData = { suppliers: [], items: [] }; pending = []; webAppUrl = '';
+  document.getElementById('webapp-url').value = '';
+  populateSuppliers(); updatePendingUI(); updateDataInfo();
+  showToast('Cleared');
+}
+
+// ── Sync status ───────────────────────────────────────────────────────────────
+function updateSyncStatus() {
+  const dot = document.getElementById('sync-dot');
+  const status = document.getElementById('sync-status');
+  if (!isOnline) {
+    dot.className = 'sync-dot offline';
+    status.textContent = 'Offline — prices saved locally';
+  } else if (pending.length) {
+    dot.className = 'sync-dot syncing';
+    status.textContent = 'Online — ' + pending.length + ' pending sync';
+  } else {
+    dot.className = 'sync-dot online';
+    status.textContent = 'Online — all synced';
+  }
+}
+
+// ── Helpers ───────────────────────────────────────────────────────────────────
+function show(id) { document.getElementById(id).style.display = 'block'; }
+function hide(id) { document.getElementById(id).style.display = 'none'; }
+
+let toastTimer;
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => t.classList.remove('show'), 2800);
+}
+
+init();
+</script>
+</body>
+</html>
